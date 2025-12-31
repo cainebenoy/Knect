@@ -1,4 +1,3 @@
-```markdown
 # ⚡ Knect
 **The Hyper-Local Social Graph for Communities**
 
@@ -88,7 +87,6 @@ const mutualConnections = [
 
 // Perform an UPSERT (Update if exists, Insert if new)
 await supabase.from('connections').upsert(mutualConnections);
-
 ```
 
 ---
@@ -100,16 +98,14 @@ Want to run this locally?
 **1. Clone the repo**
 
 ```bash
-git clone [https://github.com/your-username/knect-mobile.git](https://github.com/your-username/knect-mobile.git)
+git clone https://github.com/cainebenoy/Knect.git
 cd knect-mobile
-
 ```
 
 **2. Install Dependencies**
 
 ```bash
 npm install
-
 ```
 
 **3. Configure Environment**
@@ -118,14 +114,12 @@ Create a `.env` file or export secrets in your terminal:
 ```bash
 export EXPO_PUBLIC_SUPABASE_URL="your-supabase-url"
 export EXPO_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
-
 ```
 
 **4. Run Simulator**
 
 ```bash
 npx expo start
-
 ```
 
 ---
@@ -150,5 +144,3 @@ npx expo start
 ---
 
 *"Building the future of networking, one scan at a time."*
-
-```
