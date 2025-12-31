@@ -12,9 +12,10 @@ import * as Location from 'expo-location';
 import { COLORS } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 
-export default function ScanScreen() {
+export default function ScanScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [statusText, setStatusText] = useState("Position QR code inside the box");
 
   if (!permission) return <View style={styles.container} />;
@@ -22,7 +23,7 @@ export default function ScanScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={styles.message}>We need your permission to show the camera</Text>
+        <Text style={styles.message}>We need camera access to Knect.</Text>
         <TouchableOpacity style={styles.button} onPress={requestPermission}>
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
@@ -30,108 +31,108 @@ export default function ScanScreen() {
     );
   }
 
-  // --- BACKGROUND TASK: Get Location & Update DB ---
-  const enrichConnectionWithLocation = async (connectionId) => {
-    try {
-      // 1. Ask for permission (usually already granted)
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      // 2. Get Location (Balanced Accuracy)
-      // We don't care if this takes 2-3 seconds now, the user is already happy
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      // 3. Update the specific connection row with coordinates
-      const { error } = await supabase
-        .from('connections')
-        .update({
-          location_lat: location.coords.latitude,
-          location_long: location.coords.longitude
-        })
-        .eq('id', connectionId); // Find the row we just made
-
-      if (error) console.log("Background Update Error:", error);
-      else console.log("Background Location Update Success!");
-
-    } catch (error) {
-      console.log("Background Location Failed:", error);
-    }
-  };
-
   const handleBarcodeScanned = async ({ data }) => {
-    if (scanned) return;
+    if (scanned || loading) return;
     
     setScanned(true);
-    setStatusText("Knecting...");
+    setLoading(true);
+    setStatusText("Establishing Mutual Link...");
 
-    if (data.startsWith('knect://user/')) {
-      const scannedId = data.replace('knect://user/', '');
-      
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+    // 1. Validate QR Format
+    if (!data.startsWith('knect://user/')) {
+      Alert.alert("Invalid QR", "This is not a Knect Pass.", [
+        { text: "OK", onPress: () => resetScanner() }
+      ]);
+      setLoading(false);
+      return;
+    }
 
-        if (scannedId === user.id) {
-          Alert.alert("That's you!", "You can't knect with yourself.", [
-            { text: "OK", onPress: () => resetScanner() }
-          ]);
-          return;
-        }
+    const scannedUserId = data.replace('knect://user/', '');
 
-        // 1. FETCH PROFILE (Fast)
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, job_title')
-          .eq('id', scannedId)
-          .single();
+    try {
+      // 2. Get My User ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No session found");
 
-        if (profile) {
-          // 2. INSERT IMMEDIATELY (No Location yet)
-          // We use .select() to get the ID of the new row back
-          const { data: newConnection, error } = await supabase
-            .from('connections')
-            .insert({
-              connector_id: user.id,
-              connected_to_id: scannedId,
-              location_lat: null, // Placeholder
-              location_long: null // Placeholder
-            })
-            .select()
-            .single();
+      const myId = user.id;
 
-          if (error) {
-            if (error.code === '23505') {
-              Alert.alert("Already Connected", `You have already knected with ${profile.full_name}.`, [
-                { text: "OK", onPress: () => resetScanner() }
-              ]);
-            } else {
-              Alert.alert("Error", error.message, [{ text: "OK", onPress: () => resetScanner() }]);
-            }
-          } else {
-            // 3. SUCCESS! Show UI immediately
-            Alert.alert(
-              "New Knect Saved!",
-              `You are now connected with ${profile.full_name}.`,
-              [{ text: "Awesome", onPress: () => resetScanner() }]
-            );
-
-            // 4. TRIGGER BACKGROUND PROCESS (Fire & Forget)
-            // We pass the new connection ID to the background function
-            if (newConnection) {
-                enrichConnectionWithLocation(newConnection.id);
-            }
-          }
-        } else {
-          Alert.alert("User Not Found", "Could not find this profile.", [{ text: "OK", onPress: () => resetScanner() }]);
-        }
-
-      } catch (err) {
-        Alert.alert("Error", "Something went wrong.", [{ text: "OK", onPress: () => resetScanner() }]);
+      // 3. Prevent Self-Scan
+      if (scannedId === myId) {
+        Alert.alert("Glitch in the Matrix", "You can't knect with yourself.", [
+          { text: "OK", onPress: () => resetScanner() }
+        ]);
+        setLoading(false);
+        return;
       }
-    } else {
-      Alert.alert("Invalid QR", "This is not a Knect Pass.", [{ text: "OK", onPress: () => resetScanner() }]);
+
+      // 4. Fetch Profile (to show name in success message)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', scannedId)
+        .single();
+
+      if (!profile) {
+        Alert.alert("User Not Found", "This profile doesn't exist.", [
+          { text: "OK", onPress: () => resetScanner() }
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      // 5. Get Location (For the meeting point)
+      let lat = null;
+      let long = null;
+      
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        lat = loc.coords.latitude;
+        long = loc.coords.longitude;
+      }
+
+      // 6. THE MUTUAL CONNECTION MAGIC
+      // We create an array of TWO connections to insert at once.
+      const mutualConnections = [
+        {
+          connector_id: myId,            // Me
+          connected_to_id: scannedUserId, // You
+          location_lat: lat,
+          location_long: long,
+          created_at: new Date()
+        },
+        {
+          connector_id: scannedUserId,   // You
+          connected_to_id: myId,         // Me (The Mirror)
+          location_lat: lat,
+          location_long: long,
+          created_at: new Date()
+        }
+      ];
+
+      // 7. Perform the Insert (Upsert prevents duplicates)
+      const { error } = await supabase
+        .from('connections')
+        .upsert(mutualConnections, { onConflict: 'connector_id, connected_to_id' });
+
+      if (error) throw error;
+
+      // 8. Success!
+      Alert.alert(
+        "Mutually Connected!",
+        `You and ${profile.full_name} are now linked.`,
+        [{ text: "Awesome", onPress: () => resetScanner() }]
+      );
+
+    } catch (err) {
+      console.log(err);
+      Alert.alert("Connection Failed", "Could not save the connection. Check internet.", [
+        { text: "OK", onPress: () => resetScanner() }
+      ]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -147,11 +148,18 @@ export default function ScanScreen() {
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
       />
+      
       <View style={styles.overlay}>
         <View style={styles.scanWindow} />
-        <Text style={styles.scanText}>
-          {statusText}
-        </Text>
+        
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>SYNCING...</Text>
+          </View>
+        ) : (
+          <Text style={styles.scanText}>{statusText}</Text>
+        )}
       </View>
     </View>
   );
@@ -164,5 +172,7 @@ const styles = StyleSheet.create({
   scanWindow: { width: 260, height: 260, borderWidth: 2, borderColor: COLORS.secondary, borderRadius: 20, backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, letterSpacing: 1, fontSize: 14, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 5, overflow: 'hidden' },
   button: { backgroundColor: COLORS.primary, padding: 15, borderRadius: 10, alignSelf: 'center' },
-  buttonText: { color: 'white', fontWeight: 'bold' }
+  buttonText: { color: 'white', fontWeight: 'bold' },
+  loadingContainer: { marginTop: 20, alignItems: 'center' },
+  loadingText: { color: COLORS.primary, fontWeight: 'bold', marginTop: 10, letterSpacing: 2 }
 });

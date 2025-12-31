@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 
@@ -11,10 +11,40 @@ export const KnectProvider = ({ children }) => {
   const [connections, setConnections] = useState([]);
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Use a ref to keep track of the user ID inside the subscription callback
+  // (This prevents stale closure issues where the listener fetches data for 'null')
+  const userIdRef = useRef(null);
 
   // This runs ONCE when the app starts
   useEffect(() => {
     refreshAllData();
+
+    // SETUP REALTIME SUBSCRIPTION
+    const channel = supabase
+      .channel('knect_global_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'connections',
+        },
+        (payload) => {
+          // Optimization: Only refresh if the change involves ME
+          // We check if the new row's 'connector_id' matches my ID
+          if (userIdRef.current && payload.new && payload.new.connector_id === userIdRef.current) {
+            console.log("⚡ Realtime Update: Refreshing List...");
+            fetchConnections(userIdRef.current);
+          }
+        }
+      )
+      .subscribe();
+
+    // Clean up when app closes
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const refreshAllData = async () => {
@@ -25,6 +55,7 @@ export const KnectProvider = ({ children }) => {
       return;
     }
     setUser(user);
+    userIdRef.current = user.id; // Update Ref for the listener
 
     // 2. Start these three tasks IN PARALLEL (Fastest)
     await Promise.all([
@@ -46,20 +77,24 @@ export const KnectProvider = ({ children }) => {
   };
 
   const fetchConnections = async (userId) => {
+    // Note: 'met_at' was renamed to 'created_at' in previous steps?
+    // Check your database columns. If you are using 'created_at', change 'met_at' below.
+    // I will use 'created_at' as per standard Supabase defaults, change back to 'met_at' if you customized it.
+    
     const { data } = await supabase
       .from('connections')
       .select(`
         id,
-        met_at,
+        created_at, 
         location_lat,
         location_long,
         profiles:connected_to_id (full_name, job_title, avatar_url) 
-      `) // <--- ADDED 'avatar_url' HERE
+      `)
       .eq('connector_id', userId)
-      .order('met_at', { ascending: false });
+      .order('created_at', { ascending: false }); // Sort by newest first
     
     if (data) setConnections(data);
-  };;
+  };
 
   const fetchLocation = async () => {
     try {
@@ -87,7 +122,7 @@ export const KnectProvider = ({ children }) => {
       connections,
       location,
       loading,
-      refreshAllData // We expose this so screens can ask for a refresh
+      refreshAllData // We expose this so screens can ask for a refresh manually too
     }}>
       {children}
     </KnectContext.Provider>
