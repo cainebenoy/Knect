@@ -1,6 +1,3 @@
-
----
-
 ```markdown
 # ⚡ Knect
 **The Hyper-Local Social Graph for Communities**
