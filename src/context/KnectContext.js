@@ -53,13 +53,13 @@ export const KnectProvider = ({ children }) => {
         met_at,
         location_lat,
         location_long,
-        profiles:connected_to_id (full_name, job_title)
-      `)
+        profiles:connected_to_id (full_name, job_title, avatar_url) 
+      `) // <--- ADDED 'avatar_url' HERE
       .eq('connector_id', userId)
       .order('met_at', { ascending: false });
     
     if (data) setConnections(data);
-  };
+  };;
 
   const fetchLocation = async () => {
     try {
