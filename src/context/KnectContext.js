@@ -9,109 +9,132 @@ export const KnectProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [connections, setConnections] = useState([]);
   const [location, setLocation] = useState(null);
+  
+  // "loading" is ONLY for the initial app launch. 
+  // We don't use it for tab switching anymore.
   const [loading, setLoading] = useState(true);
   
   const userIdRef = useRef(null);
 
-  // 1. DATA LIFECYCLE MANAGER
+  // 1. INITIAL BOOT
   useEffect(() => {
-    let realtimeChannel;
-
-    const manageSession = async () => {
-      // Get initial session
+    const initSession = async () => {
+      // Check active session
       const { data: { session } } = await supabase.auth.getSession();
-      handleUserSession(session?.user);
-
-      // Listen for changes (Sign In / Sign Out)
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        handleUserSession(session?.user);
-      });
-
-      return () => subscription.unsubscribe();
+      
+      if (session?.user) {
+        setUser(session.user);
+        userIdRef.current = session.user.id;
+        // Fetch data immediately
+        await refreshAllData(session.user.id);
+      }
+      
+      // Stop the global spinner once we've checked session
+      setLoading(false);
     };
 
-    manageSession();
+    initSession();
 
-    // Cleanup
-    return () => {
-      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
-    };
+    // Listen for Auth Changes (Login/Logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        userIdRef.current = session.user.id;
+        await refreshAllData(session.user.id);
+      } else {
+        // Clear data on logout
+        setUser(null);
+        setProfile(null);
+        setConnections([]);
+        userIdRef.current = null;
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // 2. Handle Login/Logout Logic
-  const handleUserSession = async (currentUser) => {
-    if (currentUser) {
-      // LOGGED IN: Set user and fetch data
-      setUser(currentUser);
-      userIdRef.current = currentUser.id;
-      
-      await Promise.all([
-        fetchProfile(currentUser.id),
-        fetchConnections(currentUser.id),
-        fetchLocation()
-      ]);
-      
-      setupRealtime(currentUser.id);
-    } else {
-      // LOGGED OUT: Clear everything
-      setUser(null);
-      setProfile(null);
-      setConnections([]);
-      userIdRef.current = null;
-      // Remove realtime subscription if exists
-      supabase.removeAllChannels(); 
-    }
-    setLoading(false);
-  };
+  // 2. REALTIME LISTENER
+  useEffect(() => {
+    if (!user) return;
 
-  const setupRealtime = (uid) => {
-    supabase
+    const channel = supabase
       .channel('knect_global_changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'connections' },
         (payload) => {
-          if (uid && payload.new && payload.new.connector_id === uid) {
+          // If the change involves ME, refresh the list
+          if (userIdRef.current && payload.new && payload.new.connector_id === userIdRef.current) {
             console.log("⚡ Realtime Update");
-            fetchConnections(uid);
+            // Silent refresh (background)
+            fetchConnections(userIdRef.current);
           }
         }
       )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]); // Re-run if user changes
+
+  // 3. THE REFRESH LOGIC (Silent)
+  const refreshAllData = async (manualUserId = null) => {
+    // Determine which ID to use (Manual passed ID or current state ID)
+    const targetId = manualUserId || user?.id;
+    if (!targetId) return;
+
+    // Run fetches in parallel
+    // We do NOT set loading(true) here to prevent UI flickering
+    await Promise.all([
+      fetchProfile(targetId),
+      fetchConnections(targetId),
+      fetchLocation()
+    ]);
   };
 
   const fetchProfile = async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (data) setProfile({ ...data, id: userId });
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (data) setProfile(data);
+    } catch (e) {
+      console.log("Profile fetch error:", e);
+    }
   };
 
   const fetchConnections = async (userId) => {
-    const { data, error } = await supabase
-      .from('connections')
-      .select(`
-        id,
-        created_at, 
-        connected_to_id,  
-        location_lat,
-        location_long,
-        profiles:connected_to_id (
-          full_name, 
-          job_title, 
-          avatar_url,
-          linkedin,
-          github,
-          twitter,
-          instagram
-        ) 
-      `) // ^^^ ADDED connected_to_id HERE
-      .eq('connector_id', userId)
-      .order('created_at', { ascending: false });
-    
-    if (data) setConnections(data);
+    try {
+      const { data, error } = await supabase
+        .from('connections')
+        .select(`
+          id,
+          created_at, 
+          connected_to_id,  
+          location_lat,
+          location_long,
+          profiles:connected_to_id (
+            full_name, 
+            job_title, 
+            avatar_url,
+            linkedin,
+            github,
+            twitter,
+            instagram
+          ) 
+        `)
+        .eq('connector_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (data) setConnections(data);
+    } catch (e) {
+      console.log("Connections fetch error:", e);
+    }
   };
 
   const fetchLocation = async () => {
@@ -139,8 +162,8 @@ export const KnectProvider = ({ children }) => {
       profile,
       connections,
       location,
-      loading,
-      refreshAllData: () => handleUserSession(user) // Allow manual refresh
+      loading, // Only true on app launch
+      refreshAllData // Screens can call this to update data silently
     }}>
       {children}
     </KnectContext.Provider>
