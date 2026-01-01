@@ -23,16 +23,16 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.caine_benoy.knectmobile",
-      
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "INTERNET"
+        "INTERNET",
+        "READ_CONTACTS",
+        "WRITE_CONTACTS"
       ],
-
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyBMUWOif6eZjDY0F4NNO5P5PhhyBiyynRU"
@@ -53,6 +53,18 @@
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to let you set your profile picture."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Knect to access your camera to scan QR codes."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Knect to save connections to your phone's contacts."
         }
       ]
     ],

@@ -10,10 +10,10 @@ import {
   Alert 
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { SwipeListView } from 'react-native-swipe-list-view'; // <--- NEW LIBRARY
+import { SwipeListView } from 'react-native-swipe-list-view';
 import { Ionicons } from '@expo/vector-icons';
 import { useKnect } from '../context/KnectContext';
-import { supabase } from '../lib/supabase'; // Need this to perform delete
+import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/theme';
 
 export default function HomeScreen({ navigation }) {
@@ -30,6 +30,7 @@ export default function HomeScreen({ navigation }) {
 
   // Filter Logic
   useEffect(() => {
+    if (!connections) return;
     if (searchQuery === '') {
       setFilteredConnections(connections);
     } else {
@@ -45,12 +46,10 @@ export default function HomeScreen({ navigation }) {
 
   // --- DELETE FUNCTION ---
   const deleteConnection = async (rowMap, id) => {
-    // 1. Close the row smoothly
     if (rowMap[id]) {
       rowMap[id].closeRow();
     }
 
-    // 2. Ask for confirmation
     Alert.alert(
       "Remove Connection",
       "Are you sure you want to delete this person?",
@@ -61,15 +60,12 @@ export default function HomeScreen({ navigation }) {
           style: "destructive", 
           onPress: async () => {
             try {
-              // 3. Delete from Database
               const { error } = await supabase
                 .from('connections')
                 .delete()
                 .eq('id', id);
 
               if (error) throw error;
-
-              // 4. Refresh List
               refreshAllData();
               
             } catch (error) {
@@ -81,41 +77,54 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
-  // --- RENDER FRONT ROW (The Card) ---
-  const renderItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.connectionCard}
-      activeOpacity={1} // Keep opacity 1 so it doesn't flash when swiping
-      onPress={() => navigation.navigate('ConnectionDetail', { connection: item })}
-    >
-      <View style={styles.avatarWrapper}>
-        {item.profiles?.avatar_url ? (
-          <Image 
-            source={{ uri: item.profiles.avatar_url }} 
-            style={styles.avatarImage} 
-          />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>
-              {item.profiles?.full_name ? item.profiles.full_name[0] : '?'}
-            </Text>
+  // --- RENDER FRONT ROW ---
+  const renderItem = ({ item }) => {
+    // Robust Date Handling
+    const rawDate = item.created_at || item.met_at;
+    const formattedDate = rawDate 
+      ? new Date(rawDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+      : "Recently";
+
+    return (
+      <TouchableOpacity 
+        style={styles.connectionCard}
+        activeOpacity={1}
+        onPress={() => navigation.navigate('ConnectionDetail', { connection: item })}
+      >
+        <View style={styles.avatarWrapper}>
+          {item.profiles?.avatar_url ? (
+            <Image 
+              source={{ uri: item.profiles.avatar_url }} 
+              style={styles.avatarImage} 
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>
+                {item.profiles?.full_name ? item.profiles.full_name[0] : '?'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.infoContainer}>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.profiles?.full_name || 'Unknown User'}
+          </Text>
+          <Text style={styles.role} numberOfLines={1}>
+            {item.profiles?.job_title || 'No Title Provided'}
+          </Text>
+          <View style={styles.dateRow}>
+            <Ionicons name="time-outline" size={10} color={COLORS.textDim} />
+            <Text style={styles.date}> Met on {formattedDate}</Text>
           </View>
-        )}
-      </View>
+        </View>
 
-      <View style={styles.infoContainer}>
-        <Text style={styles.name}>{item.profiles?.full_name || 'Unknown'}</Text>
-        <Text style={styles.role}>{item.profiles?.job_title || 'No Title'}</Text>
-        <Text style={styles.date}>
-          Met on {new Date(item.created_at || item.met_at).toLocaleDateString()}
-        </Text>
-      </View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textDim} />
+      </TouchableOpacity>
+    );
+  };
 
-      <Ionicons name="chevron-forward" size={20} color={COLORS.textDim} />
-    </TouchableOpacity>
-  );
-
-  // --- RENDER HIDDEN ROW (The Red Button) ---
+  // --- RENDER HIDDEN ROW ---
   const renderHiddenItem = (data, rowMap) => (
     <View style={styles.rowBack}>
       <TouchableOpacity
@@ -132,12 +141,11 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.header}>RECENT KNECTS</Text>
       
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={COLORS.textDim} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search name or role..."
+          placeholder="Search connections..."
           placeholderTextColor={COLORS.textDim}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -150,23 +158,26 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       {loading && connections.length === 0 ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{marginTop: 50}} />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Syncing Radar...</Text>
+        </View>
       ) : (
         <SwipeListView
           data={filteredConnections}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           renderHiddenItem={renderHiddenItem}
-          rightOpenValue={-85} // How far to slide left
-          disableRightSwipe={true} // Disable swiping right
+          rightOpenValue={-85}
+          disableRightSwipe={true}
           contentContainerStyle={{ paddingBottom: 100 }}
-          previewRowKey={'0'}
-          previewOpenValue={-40}
-          previewOpenDelay={3000}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              {searchQuery ? "No matching connections found." : "No connections yet. Go scan someone!"}
-            </Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={60} color="#333" />
+              <Text style={styles.emptyText}>
+                {searchQuery ? "No matches found." : "Your radar is empty.\nScan someone to get started!"}
+              </Text>
+            </View>
           }
         />
       )}
@@ -177,8 +188,9 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background, paddingTop: 60, paddingHorizontal: 20 },
   header: { color: COLORS.text, fontSize: 18, fontWeight: 'bold', letterSpacing: 4, marginBottom: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: COLORS.primary, marginTop: 10, letterSpacing: 1, fontSize: 12 },
   
-  // Search
   searchContainer: {
     flexDirection: 'row',
     backgroundColor: '#1A1A1A',
@@ -193,7 +205,6 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, color: 'white', fontSize: 16 },
 
-  // Card Styles
   connectionCard: { 
     flexDirection: 'row', 
     backgroundColor: COLORS.surface, 
@@ -203,23 +214,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#333',
-    // Must add height to ensure swipe view works perfectly
-    height: 80, 
+    height: 90, 
   },
   avatarWrapper: { marginRight: 15 },
-  avatarImage: { width: 50, height: 50, borderRadius: 25, borderWidth: 1, borderColor: COLORS.primary },
-  avatarPlaceholder: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.primary },
-  avatarText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+  avatarImage: { width: 55, height: 55, borderRadius: 27.5, borderWidth: 1, borderColor: COLORS.primary },
+  avatarPlaceholder: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#333', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.primary },
+  avatarText: { color: 'white', fontWeight: 'bold', fontSize: 20 },
   infoContainer: { flex: 1 },
-  name: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  role: { color: COLORS.secondary, fontSize: 12, marginBottom: 4 },
-  date: { color: COLORS.textDim, fontSize: 10 },
-  emptyText: { color: COLORS.textDim, textAlign: 'center', marginTop: 50, fontSize: 16 },
+  name: { color: 'white', fontWeight: 'bold', fontSize: 17, marginBottom: 2 },
+  role: { color: COLORS.secondary, fontSize: 13, marginBottom: 4 },
+  dateRow: { flexDirection: 'row', alignItems: 'center' },
+  date: { color: COLORS.textDim, fontSize: 11 },
+  
+  emptyContainer: { alignItems: 'center', marginTop: 100 },
+  emptyText: { color: COLORS.textDim, textAlign: 'center', marginTop: 20, fontSize: 16, lineHeight: 24 },
 
-  // Swipe Hidden Styles
   rowBack: {
     alignItems: 'center',
-    backgroundColor: COLORS.background, // Match bg so it looks transparent
+    backgroundColor: COLORS.background,
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -236,7 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF4444',
     borderTopRightRadius: 15,
     borderBottomRightRadius: 15,
-    height: 80, // Match Card Height
+    height: 90, 
   },
   deleteText: {
     color: 'white',

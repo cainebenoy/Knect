@@ -2,7 +2,6 @@ import React, { createContext, useState, useEffect, useContext, useRef } from 'r
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 
-// Create the memory space
 const KnectContext = createContext();
 
 export const KnectProvider = ({ children }) => {
@@ -12,59 +11,73 @@ export const KnectProvider = ({ children }) => {
   const [location, setLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // Use a ref to keep track of the user ID inside the subscription callback
-  // (This prevents stale closure issues where the listener fetches data for 'null')
   const userIdRef = useRef(null);
 
-  // This runs ONCE when the app starts
+  // 1. DATA LIFECYCLE MANAGER
   useEffect(() => {
-    refreshAllData();
+    let realtimeChannel;
 
-    // SETUP REALTIME SUBSCRIPTION
-    const channel = supabase
+    const manageSession = async () => {
+      // Get initial session
+      const { data: { session } } = await supabase.auth.getSession();
+      handleUserSession(session?.user);
+
+      // Listen for changes (Sign In / Sign Out)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        handleUserSession(session?.user);
+      });
+
+      return () => subscription.unsubscribe();
+    };
+
+    manageSession();
+
+    // Cleanup
+    return () => {
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    };
+  }, []);
+
+  // 2. Handle Login/Logout Logic
+  const handleUserSession = async (currentUser) => {
+    if (currentUser) {
+      // LOGGED IN: Set user and fetch data
+      setUser(currentUser);
+      userIdRef.current = currentUser.id;
+      
+      await Promise.all([
+        fetchProfile(currentUser.id),
+        fetchConnections(currentUser.id),
+        fetchLocation()
+      ]);
+      
+      setupRealtime(currentUser.id);
+    } else {
+      // LOGGED OUT: Clear everything
+      setUser(null);
+      setProfile(null);
+      setConnections([]);
+      userIdRef.current = null;
+      // Remove realtime subscription if exists
+      supabase.removeAllChannels(); 
+    }
+    setLoading(false);
+  };
+
+  const setupRealtime = (uid) => {
+    supabase
       .channel('knect_global_changes')
       .on(
         'postgres_changes',
-        {
-          event: '*', // Listen for INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'connections',
-        },
+        { event: '*', schema: 'public', table: 'connections' },
         (payload) => {
-          // Optimization: Only refresh if the change involves ME
-          // We check if the new row's 'connector_id' matches my ID
-          if (userIdRef.current && payload.new && payload.new.connector_id === userIdRef.current) {
-            console.log("⚡ Realtime Update: Refreshing List...");
-            fetchConnections(userIdRef.current);
+          if (uid && payload.new && payload.new.connector_id === uid) {
+            console.log("⚡ Realtime Update");
+            fetchConnections(uid);
           }
         }
       )
       .subscribe();
-
-    // Clean up when app closes
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const refreshAllData = async () => {
-    // 1. Get User
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    setUser(user);
-    userIdRef.current = user.id; // Update Ref for the listener
-
-    // 2. Start these three tasks IN PARALLEL (Fastest)
-    await Promise.all([
-      fetchProfile(user.id),
-      fetchConnections(user.id),
-      fetchLocation()
-    ]);
-
-    setLoading(false);
   };
 
   const fetchProfile = async (userId) => {
@@ -77,22 +90,26 @@ export const KnectProvider = ({ children }) => {
   };
 
   const fetchConnections = async (userId) => {
-    // Note: 'met_at' was renamed to 'created_at' in previous steps?
-    // Check your database columns. If you are using 'created_at', change 'met_at' below.
-    // I will use 'created_at' as per standard Supabase defaults, change back to 'met_at' if you customized it.
-    
-    const { data } = await supabase
-        .from('connections')
-        .select(`
-          id,
-          created_at,  // <--- MAKE SURE THIS IS HERE
-          met_at,      // <--- Keep this for safety if you want
-          location_lat,
-          location_long,
-          profiles:connected_to_id (full_name, job_title, avatar_url) 
-        `)
+    const { data, error } = await supabase
+      .from('connections')
+      .select(`
+        id,
+        created_at, 
+        connected_to_id,  
+        location_lat,
+        location_long,
+        profiles:connected_to_id (
+          full_name, 
+          job_title, 
+          avatar_url,
+          linkedin,
+          github,
+          twitter,
+          instagram
+        ) 
+      `) // ^^^ ADDED connected_to_id HERE
       .eq('connector_id', userId)
-      .order('created_at', { ascending: false }); // Sort by newest first
+      .order('created_at', { ascending: false });
     
     if (data) setConnections(data);
   };
@@ -123,12 +140,11 @@ export const KnectProvider = ({ children }) => {
       connections,
       location,
       loading,
-      refreshAllData // We expose this so screens can ask for a refresh manually too
+      refreshAllData: () => handleUserSession(user) // Allow manual refresh
     }}>
       {children}
     </KnectContext.Provider>
   );
 };
 
-// Custom hook to make using it easier
 export const useKnect = () => useContext(KnectContext);

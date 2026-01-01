@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics'; // Import Haptics
 import { COLORS } from '../constants/theme';
 import { supabase } from '../lib/supabase';
 
@@ -31,18 +32,68 @@ export default function ScanScreen({ navigation }) {
     );
   }
 
+  // --- ROBUST LOCATION HELPER ---
+  // Prioritizes getting a location to ensure the map feature works.
+  const getLocationSafe = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Location Required", "Please enable location to tag where you met.");
+        return { lat: null, long: null };
+      }
+
+      // 1. Get "Last Known" location immediately as a reliable backup
+      // This ensures we have data even if the fresh GPS signal is weak indoors.
+      let backupLocation = null;
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync({});
+        if (lastKnown) {
+          backupLocation = { lat: lastKnown.coords.latitude, long: lastKnown.coords.longitude };
+        }
+      } catch (e) {
+        console.log("Backup location fetch failed:", e);
+      }
+
+      // 2. Attempt to get "Fresh" precise location
+      // We allow 5 seconds for this. If it takes longer, we use the backup.
+      const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 5000));
+      const locationRequest = Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const result = await Promise.race([locationRequest, timeout]);
+      
+      if (result) {
+        // Success: We got a fresh location
+        return { lat: result.coords.latitude, long: result.coords.longitude };
+      } else if (backupLocation) {
+        // Timeout: But we have the backup, so we use that!
+        console.log("GPS timed out, using last known location.");
+        return backupLocation;
+      }
+      
+      // Worst case: No fresh GPS and no backup available.
+      return { lat: null, long: null };
+    } catch (e) {
+      console.log("GPS Critical Error:", e);
+      return { lat: null, long: null };
+    }
+  };
+
   const handleBarcodeScanned = async ({ data }) => {
     if (scanned || loading) return;
     
+    // Vibrate instantly
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
     setScanned(true);
     setLoading(true);
-    setStatusText("Debug Mode Active...");
-
-    // DEBUG 1: QR Read
-    // Alert.alert("Debug 1", "QR Read: " + data); // Uncomment if needed
+    setStatusText("Verifying...");
 
     if (!data.startsWith('knect://user/')) {
-      Alert.alert("Error", "Invalid QR Format");
+      Alert.alert("Invalid QR", "This is not a Knect Pass.", [
+        { text: "OK", onPress: () => resetScanner() }
+      ]);
       setLoading(false);
       return;
     }
@@ -50,82 +101,51 @@ export default function ScanScreen({ navigation }) {
     const scannedUserId = data.replace('knect://user/', '');
 
     try {
-      // DEBUG 2: Auth Check
-      // Alert.alert("Debug 2", "Checking Auth...");
+      // 1. Auth Check
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User is not logged in!");
-      }
+      if (!user) throw new Error("Please log in again.");
       
       const myId = user.id;
-      // Alert.alert("Debug 3", "My ID: " + myId);
 
       if (scannedUserId === myId) {
-        Alert.alert("Stop", "You scanned yourself.");
+        Alert.alert("Hold up", "You can't connect with yourself.", [
+          { text: "OK", onPress: () => resetScanner() }
+        ]);
         setLoading(false);
         return;
       }
 
-      // DEBUG 4: Profile Fetch
-      // Alert.alert("Debug 4", "Fetching Profile...");
+      // 2. Fetch Profile (Check if user exists)
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', scannedUserId)
         .single();
 
-      if (profileError) {
-        throw new Error("Profile Fetch Error: " + profileError.message);
-      }
-      
-      // Alert.alert("Debug 5", "Found User: " + profile.full_name);
-
-      // DEBUG 6: Location (The most common point of failure)
-      setStatusText("Waiting for GPS...");
-      // Alert.alert("Debug 6", "Requesting Location...");
-      
-      let lat = null;
-      let long = null;
-      
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          // Alert.alert("Debug 7", "GPS Permission Granted. Getting Coords...");
-          
-          // We use a simplified location call to see if this is the blocker
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced, 
-          });
-          
-          lat = loc.coords.latitude;
-          long = loc.coords.longitude;
-          // Alert.alert("Debug 8", "Got Location: " + lat);
-        } else {
-          // Alert.alert("Debug 7", "GPS Permission Denied");
-        }
-      } catch (locErr) {
-        Alert.alert("Debug GPS Fail", "GPS Failed: " + locErr.message);
-        // Continue anyway without location
+      if (profileError || !profile) {
+        throw new Error("User profile not found.");
       }
 
-      // DEBUG 9: Database Insert
-      setStatusText("Saving to Database...");
-      // Alert.alert("Debug 9", "Preparing Database Insert...");
+      // 3. Get Location (Robust Mode)
+      setStatusText("Acquiring GPS Coordinates...");
+      const loc = await getLocationSafe();
 
+      // 4. Mutual Database Insert
+      setStatusText("Knecting...");
+      
       const mutualConnections = [
         {
           connector_id: myId,            
           connected_to_id: scannedUserId, 
-          location_lat: lat,
-          location_long: long,
+          location_lat: loc.lat,
+          location_long: loc.long,
           created_at: new Date()
         },
         {
           connector_id: scannedUserId,   
           connected_to_id: myId,         
-          location_lat: lat,
-          location_long: long,
+          location_lat: loc.lat,
+          location_long: loc.long,
           created_at: new Date()
         }
       ];
@@ -135,20 +155,18 @@ export default function ScanScreen({ navigation }) {
         .upsert(mutualConnections, { onConflict: 'connector_id, connected_to_id' });
 
       if (error) {
-        // THIS IS THE GOLD MINE - The exact database error
-        throw new Error("DB Error: " + error.message + " | Code: " + error.code);
+        throw new Error("DB Error: " + error.message);
       }
 
-      // Success
+      // 5. Success
       Alert.alert(
-        "Success!",
-        `Connected with ${profile.full_name}`,
-        [{ text: "OK", onPress: () => resetScanner() }]
+        "Mutually Connected!",
+        `You are now linked with ${profile.full_name}.`,
+        [{ text: "Awesome", onPress: () => resetScanner() }]
       );
 
     } catch (err) {
-      // CATCH-ALL ERROR DISPLAY
-      Alert.alert("CRITICAL ERROR", String(err.message), [
+      Alert.alert("Connection Failed", String(err.message), [
         { text: "OK", onPress: () => resetScanner() }
       ]);
     } finally {
@@ -168,6 +186,7 @@ export default function ScanScreen({ navigation }) {
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
       />
+      
       <View style={styles.overlay}>
         <View style={styles.scanWindow} />
         {loading ? (

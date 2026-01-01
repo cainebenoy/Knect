@@ -6,7 +6,7 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 import * as ImagePicker from 'expo-image-picker'; 
 import { decode } from 'base64-arraybuffer';      
-import { Ionicons, FontAwesome } from '@expo/vector-icons'; // Added FontAwesome
+import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/theme';
 import { useKnect } from '../context/KnectContext';
@@ -46,7 +46,7 @@ export default function ProfileScreen() {
     }
   }, [profile]);
 
-  // --- 1. Pick Image (Your Stable Version) ---
+  // --- 1. Pick Image ---
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -57,6 +57,7 @@ export default function ProfileScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
+        // Using MediaTypeOptions as it was stable for your version
         mediaTypes: ImagePicker.MediaTypeOptions.Images, 
         allowsEditing: true,
         aspect: [1, 1],
@@ -74,7 +75,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // --- 2. Upload to Supabase (Your Stable Version) ---
+  // --- 2. Upload to Supabase ---
   const uploadAvatar = async (base64File) => {
     try {
       setUploading(true);
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // --- 3. Update Text Details (Now includes Socials) ---
+  // --- 3. Update Text Details ---
   async function updateProfile() {
     try {
       const updates = {
