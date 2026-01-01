@@ -82,14 +82,15 @@ export const KnectProvider = ({ children }) => {
     // I will use 'created_at' as per standard Supabase defaults, change back to 'met_at' if you customized it.
     
     const { data } = await supabase
-      .from('connections')
-      .select(`
-        id,
-        created_at, 
-        location_lat,
-        location_long,
-        profiles:connected_to_id (full_name, job_title, avatar_url) 
-      `)
+        .from('connections')
+        .select(`
+          id,
+          created_at,  // <--- MAKE SURE THIS IS HERE
+          met_at,      // <--- Keep this for safety if you want
+          location_lat,
+          location_long,
+          profiles:connected_to_id (full_name, job_title, avatar_url) 
+        `)
       .eq('connector_id', userId)
       .order('created_at', { ascending: false }); // Sort by newest first
     

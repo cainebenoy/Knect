@@ -36,13 +36,13 @@ export default function ScanScreen({ navigation }) {
     
     setScanned(true);
     setLoading(true);
-    setStatusText("Establishing Mutual Link...");
+    setStatusText("Debug Mode Active...");
 
-    // 1. Validate QR Format
+    // DEBUG 1: QR Read
+    // Alert.alert("Debug 1", "QR Read: " + data); // Uncomment if needed
+
     if (!data.startsWith('knect://user/')) {
-      Alert.alert("Invalid QR", "This is not a Knect Pass.", [
-        { text: "OK", onPress: () => resetScanner() }
-      ]);
+      Alert.alert("Error", "Invalid QR Format");
       setLoading(false);
       return;
     }
@@ -50,85 +50,105 @@ export default function ScanScreen({ navigation }) {
     const scannedUserId = data.replace('knect://user/', '');
 
     try {
-      // 2. Get My User ID
+      // DEBUG 2: Auth Check
+      // Alert.alert("Debug 2", "Checking Auth...");
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No session found");
-
+      
+      if (!user) {
+        throw new Error("User is not logged in!");
+      }
+      
       const myId = user.id;
+      // Alert.alert("Debug 3", "My ID: " + myId);
 
-      // 3. Prevent Self-Scan
-      if (scannedId === myId) {
-        Alert.alert("Glitch in the Matrix", "You can't knect with yourself.", [
-          { text: "OK", onPress: () => resetScanner() }
-        ]);
+      if (scannedUserId === myId) {
+        Alert.alert("Stop", "You scanned yourself.");
         setLoading(false);
         return;
       }
 
-      // 4. Fetch Profile (to show name in success message)
-      const { data: profile } = await supabase
+      // DEBUG 4: Profile Fetch
+      // Alert.alert("Debug 4", "Fetching Profile...");
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('full_name')
-        .eq('id', scannedId)
+        .eq('id', scannedUserId)
         .single();
 
-      if (!profile) {
-        Alert.alert("User Not Found", "This profile doesn't exist.", [
-          { text: "OK", onPress: () => resetScanner() }
-        ]);
-        setLoading(false);
-        return;
+      if (profileError) {
+        throw new Error("Profile Fetch Error: " + profileError.message);
       }
+      
+      // Alert.alert("Debug 5", "Found User: " + profile.full_name);
 
-      // 5. Get Location (For the meeting point)
+      // DEBUG 6: Location (The most common point of failure)
+      setStatusText("Waiting for GPS...");
+      // Alert.alert("Debug 6", "Requesting Location...");
+      
       let lat = null;
       let long = null;
       
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        lat = loc.coords.latitude;
-        long = loc.coords.longitude;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          // Alert.alert("Debug 7", "GPS Permission Granted. Getting Coords...");
+          
+          // We use a simplified location call to see if this is the blocker
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced, 
+          });
+          
+          lat = loc.coords.latitude;
+          long = loc.coords.longitude;
+          // Alert.alert("Debug 8", "Got Location: " + lat);
+        } else {
+          // Alert.alert("Debug 7", "GPS Permission Denied");
+        }
+      } catch (locErr) {
+        Alert.alert("Debug GPS Fail", "GPS Failed: " + locErr.message);
+        // Continue anyway without location
       }
 
-      // 6. THE MUTUAL CONNECTION MAGIC
-      // We create an array of TWO connections to insert at once.
+      // DEBUG 9: Database Insert
+      setStatusText("Saving to Database...");
+      // Alert.alert("Debug 9", "Preparing Database Insert...");
+
       const mutualConnections = [
         {
-          connector_id: myId,            // Me
-          connected_to_id: scannedUserId, // You
+          connector_id: myId,            
+          connected_to_id: scannedUserId, 
           location_lat: lat,
           location_long: long,
           created_at: new Date()
         },
         {
-          connector_id: scannedUserId,   // You
-          connected_to_id: myId,         // Me (The Mirror)
+          connector_id: scannedUserId,   
+          connected_to_id: myId,         
           location_lat: lat,
           location_long: long,
           created_at: new Date()
         }
       ];
 
-      // 7. Perform the Insert (Upsert prevents duplicates)
       const { error } = await supabase
         .from('connections')
         .upsert(mutualConnections, { onConflict: 'connector_id, connected_to_id' });
 
-      if (error) throw error;
+      if (error) {
+        // THIS IS THE GOLD MINE - The exact database error
+        throw new Error("DB Error: " + error.message + " | Code: " + error.code);
+      }
 
-      // 8. Success!
+      // Success
       Alert.alert(
-        "Mutually Connected!",
-        `You and ${profile.full_name} are now linked.`,
-        [{ text: "Awesome", onPress: () => resetScanner() }]
+        "Success!",
+        `Connected with ${profile.full_name}`,
+        [{ text: "OK", onPress: () => resetScanner() }]
       );
 
     } catch (err) {
-      console.log(err);
-      Alert.alert("Connection Failed", "Could not save the connection. Check internet.", [
+      // CATCH-ALL ERROR DISPLAY
+      Alert.alert("CRITICAL ERROR", String(err.message), [
         { text: "OK", onPress: () => resetScanner() }
       ]);
     } finally {
@@ -148,14 +168,12 @@ export default function ScanScreen({ navigation }) {
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
       />
-      
       <View style={styles.overlay}>
         <View style={styles.scanWindow} />
-        
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>SYNCING...</Text>
+            <Text style={styles.loadingText}>{statusText}</Text>
           </View>
         ) : (
           <Text style={styles.scanText}>{statusText}</Text>

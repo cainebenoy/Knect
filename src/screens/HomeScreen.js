@@ -107,7 +107,7 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.name}>{item.profiles?.full_name || 'Unknown'}</Text>
         <Text style={styles.role}>{item.profiles?.job_title || 'No Title'}</Text>
         <Text style={styles.date}>
-          Met on {new Date(item.met_at).toLocaleDateString()}
+          Met on {new Date(item.created_at || item.met_at).toLocaleDateString()}
         </Text>
       </View>
 
