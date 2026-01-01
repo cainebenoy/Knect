@@ -9,13 +9,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: {
@@ -25,7 +26,31 @@
                         brand: {
                             purple: '#6C63FF',
                             cyan: '#00E5FF',
-                            dark: '#050505'
+                            dark: '#050505',
+                            darker: '#020202',
+                            card: '#121212'
+                        }
+                    },
+                    animation: {
+                        'blob': 'blob 7s infinite',
+                        'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        },
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
                         }
                     }
                 }
@@ -43,29 +68,55 @@
             border: 8px solid #1a1a1a;
             border-radius: 40px;
             overflow: hidden;
-            background-color: #050505; /* App is dark mode, so screen stays dark */
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            background-color: #050505;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .phone-mockup:hover {
+            transform: rotate(0deg) scale(1.02);
+            box-shadow: 0 30px 60px -12px rgba(108, 99, 255, 0.3);
+        }
+        
+        /* Reveal Animation Classes */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease-out;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans antialiased">
+<body class="bg-gray-50 dark:bg-brand-darker text-gray-900 dark:text-gray-100 font-sans antialiased transition-colors duration-300 overflow-x-hidden">
 
     <!-- NAVIGATION -->
-    <nav class="fixed w-full bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
+    <nav class="fixed w-full bg-white/80 dark:bg-brand-darker/80 backdrop-blur-md z-50 border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
-                <div class="flex-shrink-0 flex items-center gap-2">
-                    <!-- Simple Logo Icon -->
-                    <div class="w-8 h-8 bg-brand-purple rounded-lg flex items-center justify-center text-white font-bold">K</div>
-                    <span class="font-bold text-xl tracking-tight">Knect</span>
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center gap-2 cursor-pointer" onclick="window.scrollTo(0,0)">
+                    <div class="w-8 h-8 bg-brand-purple rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-purple-500/30">K</div>
+                    <span class="font-bold text-xl tracking-tight dark:text-white">Knect</span>
                 </div>
-                <div class="hidden md:flex space-x-8">
-                    <a href="#problem" class="text-gray-500 hover:text-brand-purple transition">The Problem</a>
-                    <a href="#features" class="text-gray-500 hover:text-brand-purple transition">Features</a>
-                    <a href="#download" class="text-gray-500 hover:text-brand-purple transition">Download</a>
+                
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="#problem" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-brand-purple dark:hover:text-brand-purple transition">The Problem</a>
+                    <a href="#features" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-brand-purple dark:hover:text-brand-purple transition">Features</a>
+                    <a href="#download" class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-brand-purple dark:hover:text-brand-purple transition">Download</a>
                 </div>
-                <div>
-                    <a href="#download" class="bg-black text-white px-5 py-2 rounded-full font-medium hover:bg-gray-800 transition shadow-lg">
+
+                <!-- Right Side Actions -->
+                <div class="flex items-center gap-4">
+                    <!-- Theme Toggle -->
+                    <button id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition focus:outline-none">
+                        <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
+                        <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+                    </button>
+
+                    <a href="#download" class="hidden sm:inline-flex bg-gray-900 dark:bg-white text-white dark:text-black px-5 py-2 rounded-full font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition shadow-lg text-sm">
                         Get App
                     </a>
                 </div>
@@ -79,61 +130,81 @@
             <div class="lg:grid lg:grid-cols-12 lg:gap-16 items-center">
                 
                 <!-- Text Content -->
-                <div class="lg:col-span-6 text-center lg:text-left mb-16 lg:mb-0">
-                    <div class="inline-block px-4 py-1.5 rounded-full bg-blue-50 text-brand-purple font-semibold text-sm mb-6 border border-blue-100">
-                        🚀 V2.0 Now Available
+                <div class="lg:col-span-6 text-center lg:text-left mb-16 lg:mb-0 relative z-10 reveal">
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-brand-purple dark:text-blue-200 font-semibold text-xs mb-6 border border-blue-100 dark:border-blue-800 animate-fade-in-up">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-purple opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-purple"></span>
+                        </span>
+                        v2.0 Now Available
                     </div>
-                    <h1 class="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 text-gray-900 leading-tight">
+                    <h1 class="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 text-gray-900 dark:text-white leading-[1.1] animate-fade-in-up [animation-delay:0.2s]">
                         Don't just meet. <br>
                         <span class="gradient-text">Remember.</span>
                     </h1>
-                    <p class="text-xl text-gray-500 mb-8 leading-relaxed">
+                    <p class="text-xl text-gray-500 dark:text-gray-400 mb-8 leading-relaxed animate-fade-in-up [animation-delay:0.4s]">
                         The spatial social graph that maps your connections. Instant QR handshakes, real-time sync, and a visual history of every network you've built.
                     </p>
-                    <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                        <button class="flex items-center justify-center gap-2 bg-brand-purple text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-700 transition shadow-xl shadow-purple-200">
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in-up [animation-delay:0.6s]">
+                        <button class="flex items-center justify-center gap-2 bg-brand-purple text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-purple-700 transition shadow-xl shadow-purple-500/30 hover:-translate-y-1 transform duration-200">
                             <i data-lucide="download"></i>
                             Download APK
                         </button>
-                        <button class="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-200 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 transition">
+                        <button class="flex items-center justify-center gap-2 bg-white dark:bg-brand-card text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-800 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition hover:-translate-y-1 transform duration-200">
                             <i data-lucide="github"></i>
                             View Code
                         </button>
                     </div>
-                    <p class="mt-4 text-sm text-gray-400">Available for Android • Built with React Native</p>
+                    <p class="mt-6 text-sm text-gray-400 dark:text-gray-500 animate-fade-in-up [animation-delay:0.8s]">Available for Android • Built with React Native & Supabase</p>
                 </div>
 
                 <!-- Phone Mockup -->
-                <div class="lg:col-span-6 relative flex justify-center lg:justify-end">
-                    <!-- Background Blob -->
-                    <div class="absolute top-0 right-10 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
-                    <div class="absolute bottom-0 left-10 w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
+                <div class="lg:col-span-6 relative flex justify-center lg:justify-end reveal [transition-delay:0.2s]">
+                    <!-- Background Blobs -->
+                    <div class="absolute top-0 right-10 w-96 h-96 bg-purple-400/30 dark:bg-purple-600/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl animate-blob"></div>
+                    <div class="absolute bottom-0 left-10 w-96 h-96 bg-cyan-400/30 dark:bg-cyan-600/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl animate-blob [animation-delay:2s]"></div>
                     
                     <!-- The Phone -->
-                    <div class="phone-mockup w-[300px] h-[600px] relative z-10 rotate-[-5deg] hover:rotate-0 transition duration-500">
+                    <div class="phone-mockup w-[300px] h-[600px] relative z-10 rotate-[-6deg] animate-float">
                         <!-- App Header Simulation -->
-                        <div class="h-full w-full bg-[#050505] relative flex flex-col items-center justify-center">
+                        <div class="h-full w-full bg-[#050505] relative flex flex-col items-center justify-center overflow-hidden">
+                            
+                            <!-- Grid Background inside phone -->
+                            <div class="absolute inset-0" style="background-image: radial-gradient(#333 1px, transparent 1px); background-size: 20px 20px; opacity: 0.2;"></div>
+
                             <!-- Abstract UI Representation -->
-                            <div class="absolute top-10 text-white font-bold text-lg tracking-widest text-center w-full">THE RADAR</div>
+                            <div class="absolute top-12 text-white font-bold text-lg tracking-[0.3em] text-center w-full z-20">RADAR ACTIVE</div>
                             
                             <!-- Pulsing Circles -->
-                            <div class="w-64 h-64 border border-purple-500/30 rounded-full absolute animate-ping"></div>
-                            <div class="w-48 h-48 border border-cyan-500/30 rounded-full absolute animate-pulse"></div>
+                            <div class="w-80 h-80 border border-purple-500/20 rounded-full absolute animate-ping [animation-duration:3s]"></div>
+                            <div class="w-60 h-60 border border-purple-500/40 rounded-full absolute animate-ping [animation-duration:3s] [animation-delay:1s]"></div>
+                            <div class="w-40 h-40 border border-cyan-500/30 rounded-full absolute animate-pulse"></div>
                             
-                            <!-- Central Node -->
-                            <div class="w-20 h-20 bg-gradient-to-tr from-brand-purple to-cyan-400 rounded-full shadow-[0_0_30px_rgba(108,99,255,0.5)] flex items-center justify-center">
-                                <i data-lucide="qr-code" class="text-white w-10 h-10"></i>
+                            <!-- Central Node (QR) -->
+                            <div class="w-24 h-24 bg-gradient-to-tr from-brand-purple to-cyan-500 rounded-2xl shadow-[0_0_40px_rgba(108,99,255,0.6)] flex items-center justify-center relative z-20">
+                                <i data-lucide="qr-code" class="text-white w-12 h-12"></i>
                             </div>
 
                             <!-- Connection Dots -->
-                            <div class="absolute top-32 right-10 w-8 h-8 bg-gray-800 rounded-full border border-gray-600"></div>
-                            <div class="absolute bottom-40 left-12 w-10 h-10 bg-gray-800 rounded-full border border-gray-600 flex items-center justify-center text-white text-xs">SJ</div>
+                            <div class="absolute top-32 right-12 flex flex-col items-center gap-1 animate-pulse-slow">
+                                <div class="w-10 h-10 bg-gray-800 rounded-full border border-gray-600 overflow-hidden">
+                                    <img src="https://i.pravatar.cc/100?img=11" class="w-full h-full object-cover opacity-80" alt="User">
+                                </div>
+                                <span class="text-[10px] text-gray-400">Elon M.</span>
+                            </div>
+
+                            <div class="absolute bottom-40 left-10 flex flex-col items-center gap-1 animate-pulse-slow [animation-delay:1.5s]">
+                                <div class="w-12 h-12 bg-gray-800 rounded-full border border-gray-600 overflow-hidden">
+                                    <img src="https://i.pravatar.cc/100?img=33" class="w-full h-full object-cover opacity-80" alt="User">
+                                </div>
+                                <span class="text-[10px] text-gray-400">Steve J.</span>
+                            </div>
                             
                             <!-- Bottom Nav -->
-                            <div class="absolute bottom-0 w-full h-20 bg-[#121212] flex flex-row justify-around items-center border-t border-gray-800">
-                                <i data-lucide="radio" class="text-brand-purple"></i>
-                                <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center -mt-8 shadow-lg">
-                                    <i data-lucide="scan-line" class="text-black"></i>
+                            <div class="absolute bottom-0 w-full h-24 bg-[#121212]/90 backdrop-blur-md flex flex-row justify-around items-center border-t border-gray-800 z-30 pb-4">
+                                <i data-lucide="radio" class="text-brand-purple drop-shadow-[0_0_10px_rgba(108,99,255,0.8)]"></i>
+                                <div class="w-14 h-14 bg-gradient-to-r from-brand-purple to-cyan-500 rounded-full flex items-center justify-center -mt-10 shadow-lg shadow-purple-900/50 border-4 border-[#050505]">
+                                    <i data-lucide="scan-line" class="text-white"></i>
                                 </div>
                                 <i data-lucide="map" class="text-gray-500"></i>
                             </div>
@@ -145,127 +216,183 @@
     </section>
 
     <!-- PROBLEM SECTION -->
-    <section id="problem" class="py-20 bg-white">
+    <section id="problem" class="py-24 bg-white dark:bg-brand-darker transition-colors duration-300">
         <div class="max-w-4xl mx-auto px-4 text-center">
-            <h2 class="text-base text-brand-purple font-bold tracking-wide uppercase mb-2">The Problem</h2>
-            <h3 class="text-3xl lg:text-4xl font-bold text-gray-900 mb-8">Networking events are chaotic.</h3>
+            <h2 class="text-sm text-brand-purple font-bold tracking-widest uppercase mb-3 reveal">The Problem</h2>
+            <h3 class="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-12 reveal [transition-delay:0.1s]">Networking events are chaotic.</h3>
+            
             <div class="grid md:grid-cols-2 gap-8 text-left mt-12">
-                <div class="bg-gray-50 p-8 rounded-2xl border border-gray-100">
-                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                        <i data-lucide="x" class="text-red-500"></i>
+                <div class="bg-gray-50 dark:bg-brand-card p-8 rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-red-200 dark:hover:border-red-900/30 transition duration-300 group reveal [transition-delay:0.2s]">
+                    <div class="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition duration-300">
+                        <i data-lucide="x" class="text-red-500 dark:text-red-400"></i>
                     </div>
-                    <h4 class="text-xl font-bold text-gray-900 mb-2">The Context Loss</h4>
-                    <p class="text-gray-500">You collect 20 business cards, but by Monday morning, you can't remember who was the developer and who was the investor.</p>
+                    <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-3">The Context Loss</h4>
+                    <p class="text-gray-500 dark:text-gray-400 leading-relaxed">You collect 20 business cards, but by Monday morning, you can't remember who was the developer and who was the investor.</p>
                 </div>
-                <div class="bg-gray-50 p-8 rounded-2xl border border-gray-100">
-                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                        <i data-lucide="x" class="text-red-500"></i>
+                
+                <div class="bg-gray-50 dark:bg-brand-card p-8 rounded-3xl border border-gray-100 dark:border-gray-800 hover:border-red-200 dark:hover:border-red-900/30 transition duration-300 group reveal [transition-delay:0.3s]">
+                    <div class="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition duration-300">
+                        <i data-lucide="clock" class="text-red-500 dark:text-red-400"></i>
                     </div>
-                    <h4 class="text-xl font-bold text-gray-900 mb-2">The Friction</h4>
-                    <p class="text-gray-500">Adding someone on LinkedIn takes too many taps. Spelling names wrong is awkward. The moment is lost.</p>
+                    <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-3">The Friction</h4>
+                    <p class="text-gray-500 dark:text-gray-400 leading-relaxed">Adding someone on LinkedIn takes too many taps. Spelling names wrong is awkward. The moment is lost before it begins.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- FEATURES SECTION -->
-    <section id="features" class="py-24 bg-gray-50">
+    <section id="features" class="py-24 bg-gray-50 dark:bg-[#080808] transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center max-w-3xl mx-auto mb-16">
-                <h2 class="text-brand-purple font-bold tracking-wide uppercase text-sm mb-2">Features</h2>
-                <h3 class="text-3xl font-bold text-gray-900">Built for the Hyper-Connected.</h3>
+            <div class="text-center max-w-3xl mx-auto mb-20 reveal">
+                <h2 class="text-brand-purple font-bold tracking-widest uppercase text-sm mb-3">Features</h2>
+                <h3 class="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">Built for the Hyper-Connected.</h3>
             </div>
 
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                 <!-- Feature 1 -->
-                <div class="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition duration-300 border border-gray-100 group">
-                    <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-purple transition duration-300">
-                        <i data-lucide="scan-line" class="text-brand-purple group-hover:text-white transition"></i>
+                <div class="bg-white dark:bg-brand-card p-8 rounded-3xl shadow-sm hover:shadow-xl dark:shadow-none dark:hover:bg-[#1a1a1a] transition duration-300 border border-gray-100 dark:border-gray-800 group reveal [transition-delay:0.1s]">
+                    <div class="w-14 h-14 bg-purple-50 dark:bg-purple-900/20 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-brand-purple transition duration-300">
+                        <i data-lucide="scan-line" class="text-brand-purple group-hover:text-white transition w-7 h-7"></i>
                     </div>
-                    <h4 class="text-lg font-bold text-gray-900 mb-2">Flash Scan</h4>
-                    <p class="text-gray-500 text-sm">Instantly exchange contact details via dynamic QR codes. No typing required.</p>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Flash Scan</h4>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Instantly exchange contact details via dynamic QR codes. No typing required.</p>
                 </div>
 
                 <!-- Feature 2 -->
-                <div class="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition duration-300 border border-gray-100 group">
-                    <div class="w-12 h-12 bg-cyan-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-cyan transition duration-300">
-                        <i data-lucide="map-pin" class="text-cyan-500 group-hover:text-white transition"></i>
+                <div class="bg-white dark:bg-brand-card p-8 rounded-3xl shadow-sm hover:shadow-xl dark:shadow-none dark:hover:bg-[#1a1a1a] transition duration-300 border border-gray-100 dark:border-gray-800 group reveal [transition-delay:0.2s]">
+                    <div class="w-14 h-14 bg-cyan-50 dark:bg-cyan-900/20 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-brand-cyan transition duration-300">
+                        <i data-lucide="map-pin" class="text-cyan-500 group-hover:text-white transition w-7 h-7"></i>
                     </div>
-                    <h4 class="text-lg font-bold text-gray-900 mb-2">Geospatial Memory</h4>
-                    <p class="text-gray-500 text-sm">Every connection is tagged with GPS coordinates. See your network on a global map.</p>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Geospatial Memory</h4>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Every connection is tagged with GPS coordinates. See your network on a global map.</p>
                 </div>
 
                 <!-- Feature 3 -->
-                <div class="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition duration-300 border border-gray-100 group">
-                    <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-purple transition duration-300">
-                        <i data-lucide="arrow-left-right" class="text-brand-purple group-hover:text-white transition"></i>
+                <div class="bg-white dark:bg-brand-card p-8 rounded-3xl shadow-sm hover:shadow-xl dark:shadow-none dark:hover:bg-[#1a1a1a] transition duration-300 border border-gray-100 dark:border-gray-800 group reveal [transition-delay:0.3s]">
+                    <div class="w-14 h-14 bg-purple-50 dark:bg-purple-900/20 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-brand-purple transition duration-300">
+                        <i data-lucide="arrow-left-right" class="text-brand-purple group-hover:text-white transition w-7 h-7"></i>
                     </div>
-                    <h4 class="text-lg font-bold text-gray-900 mb-2">Mutual Link</h4>
-                    <p class="text-gray-500 text-sm">One scan connects both of you instantly. No "pending requests."</p>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Mutual Link</h4>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">One scan connects both of you instantly. No awkward "pending requests."</p>
                 </div>
 
                 <!-- Feature 4 -->
-                <div class="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition duration-300 border border-gray-100 group">
-                    <div class="w-12 h-12 bg-cyan-50 rounded-xl flex items-center justify-center mb-6 group-hover:bg-brand-cyan transition duration-300">
-                        <i data-lucide="zap" class="text-cyan-500 group-hover:text-white transition"></i>
+                <div class="bg-white dark:bg-brand-card p-8 rounded-3xl shadow-sm hover:shadow-xl dark:shadow-none dark:hover:bg-[#1a1a1a] transition duration-300 border border-gray-100 dark:border-gray-800 group reveal [transition-delay:0.4s]">
+                    <div class="w-14 h-14 bg-cyan-50 dark:bg-cyan-900/20 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-brand-cyan transition duration-300">
+                        <i data-lucide="zap" class="text-cyan-500 group-hover:text-white transition w-7 h-7"></i>
                     </div>
-                    <h4 class="text-lg font-bold text-gray-900 mb-2">Real-Time Sync</h4>
-                    <p class="text-gray-500 text-sm">Powered by Supabase. Your list updates the millisecond someone scans you.</p>
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Real-Time Sync</h4>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">Powered by Supabase. Your list updates the millisecond someone scans you.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- TECH STACK BANNER -->
-    <section class="py-12 bg-white border-t border-gray-100">
+    <section class="py-16 bg-white dark:bg-brand-darker border-t border-gray-100 dark:border-gray-800 transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 text-center">
-            <p class="text-sm text-gray-400 font-semibold uppercase tracking-widest mb-6">Powered By</p>
-            <div class="flex justify-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition duration-500 items-center">
-                <!-- Logos using text for simplicity, usually SVGs -->
-                <div class="flex items-center gap-2 font-bold text-xl"><i data-lucide="atom"></i> React Native</div>
-                <div class="flex items-center gap-2 font-bold text-xl"><i data-lucide="database"></i> Supabase</div>
-                <div class="flex items-center gap-2 font-bold text-xl"><i data-lucide="map"></i> Google Maps</div>
-                <div class="flex items-center gap-2 font-bold text-xl"><i data-lucide="box"></i> Expo</div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-[0.2em] mb-10 reveal">Engineered With</p>
+            <div class="flex flex-wrap justify-center gap-8 md:gap-16 items-center reveal [transition-delay:0.1s]">
+                <!-- Tech Stack Items -->
+                <div class="flex items-center gap-3 font-bold text-lg text-gray-400 dark:text-gray-500 hover:text-brand-purple dark:hover:text-white transition duration-300 cursor-default">
+                    <i data-lucide="atom" class="w-6 h-6"></i> React Native
+                </div>
+                <div class="flex items-center gap-3 font-bold text-lg text-gray-400 dark:text-gray-500 hover:text-brand-cyan dark:hover:text-white transition duration-300 cursor-default">
+                    <i data-lucide="database" class="w-6 h-6"></i> Supabase
+                </div>
+                <div class="flex items-center gap-3 font-bold text-lg text-gray-400 dark:text-gray-500 hover:text-green-500 dark:hover:text-white transition duration-300 cursor-default">
+                    <i data-lucide="map" class="w-6 h-6"></i> Google Maps
+                </div>
+                <div class="flex items-center gap-3 font-bold text-lg text-gray-400 dark:text-gray-500 hover:text-white dark:hover:text-white transition duration-300 cursor-default">
+                    <i data-lucide="box" class="w-6 h-6"></i> Expo EAS
+                </div>
             </div>
         </div>
     </section>
 
     <!-- CTA / DOWNLOAD -->
-    <section id="download" class="py-24 bg-gray-900 text-white relative overflow-hidden">
+    <section id="download" class="py-32 bg-gray-900 dark:bg-black text-white relative overflow-hidden">
         <!-- Abstract BG shapes -->
-        <div class="absolute top-0 right-0 w-64 h-64 bg-brand-purple rounded-full filter blur-[100px] opacity-20"></div>
-        <div class="absolute bottom-0 left-0 w-64 h-64 bg-cyan-400 rounded-full filter blur-[100px] opacity-20"></div>
+        <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-purple rounded-full filter blur-[120px] opacity-20 animate-pulse-slow"></div>
+        <div class="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-400 rounded-full filter blur-[120px] opacity-20 animate-pulse-slow [animation-delay:2s]"></div>
 
-        <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
-            <h2 class="text-4xl lg:text-5xl font-bold mb-6">Ready to map your network?</h2>
-            <p class="text-xl text-gray-400 mb-10">
-                Join the beta today. Start scanning, start connecting, and never forget a face again.
+        <div class="max-w-4xl mx-auto px-4 text-center relative z-10 reveal">
+            <h2 class="text-4xl lg:text-6xl font-bold mb-8 leading-tight">Ready to map <br> your network?</h2>
+            <p class="text-xl text-gray-400 mb-12 max-w-2xl mx-auto">
+                Join the beta today. Start scanning, start connecting, and never forget a face (or a place) again.
             </p>
-            <button class="bg-brand-purple text-white px-10 py-5 rounded-full font-bold text-xl hover:bg-purple-600 transition shadow-lg shadow-purple-900/50 transform hover:-translate-y-1">
-                Download for Android
-            </button>
-            <p class="mt-6 text-sm text-gray-500">v1.0.0 • 45MB • Requires Android 10+</p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button class="bg-brand-purple text-white px-10 py-5 rounded-full font-bold text-xl hover:bg-purple-600 hover:scale-105 transition shadow-[0_0_40px_rgba(108,99,255,0.4)]">
+                    Download for Android
+                </button>
+            </div>
+            <p class="mt-8 text-sm text-gray-500 font-mono">v2.0.0 • 45MB • Requires Android 10+</p>
         </div>
     </section>
 
     <!-- FOOTER -->
-    <footer class="bg-gray-50 py-12 border-t border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
-            <div class="mb-4 md:mb-0">
-                <span class="font-bold text-xl text-gray-900">Knect</span>
-                <p class="text-sm text-gray-500 mt-1">© 2025 Caine Benoy. All rights reserved.</p>
+    <footer class="bg-gray-50 dark:bg-brand-darker py-12 border-t border-gray-200 dark:border-gray-800 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="text-center md:text-left">
+                <div class="flex items-center gap-2 justify-center md:justify-start mb-2">
+                    <div class="w-6 h-6 bg-brand-purple rounded-md flex items-center justify-center text-white text-xs font-bold">K</div>
+                    <span class="font-bold text-xl text-gray-900 dark:text-white">Knect</span>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">© 2025 Caine Benoy. Built for the community.</p>
             </div>
-            <div class="flex space-x-6">
-                <a href="#" class="text-gray-400 hover:text-gray-900 transition"><i data-lucide="github"></i></a>
-                <a href="#" class="text-gray-400 hover:text-gray-900 transition"><i data-lucide="linkedin"></i></a>
-                <a href="#" class="text-gray-400 hover:text-gray-900 transition"><i data-lucide="twitter"></i></a>
+            <div class="flex space-x-8">
+                <a href="#" class="text-gray-400 hover:text-gray-900 dark:hover:text-white transition"><i data-lucide="github" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition"><i data-lucide="linkedin" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-400 hover:text-blue-400 dark:hover:text-blue-300 transition"><i data-lucide="twitter" class="w-5 h-5"></i></a>
             </div>
         </div>
     </footer>
 
-    <!-- Init Icons -->
+    <!-- Scripts -->
     <script>
+        // 1. Icon Initialization
         lucide.createIcons();
+
+        // 2. Theme Toggle Logic
+        const html = document.documentElement;
+        const toggleBtn = document.getElementById('theme-toggle');
+        const sunIcon = toggleBtn.querySelector('[data-lucide="sun"]');
+        const moonIcon = toggleBtn.querySelector('[data-lucide="moon"]');
+
+        // Check local storage or system preference on load
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            html.classList.add('dark');
+        } else {
+            html.classList.remove('dark');
+        }
+
+        // Toggle function
+        toggleBtn.addEventListener('click', () => {
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.theme = 'light';
+            } else {
+                html.classList.add('dark');
+                localStorage.theme = 'dark';
+            }
+        });
+
+        // 3. Scroll Reveal Animation
+        function reveal() {
+            var reveals = document.querySelectorAll(".reveal");
+            for (var i = 0; i < reveals.length; i++) {
+                var windowHeight = window.innerHeight;
+                var elementTop = reveals[i].getBoundingClientRect().top;
+                var elementVisible = 150;
+                if (elementTop < windowHeight - elementVisible) {
+                    reveals[i].classList.add("active");
+                }
+            }
+        }
+        window.addEventListener("scroll", reveal);
+        // Trigger once on load
+        reveal();
     </script>
 </body>
 </html>
