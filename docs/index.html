@@ -87,6 +87,13 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* Grid Background */
+        .grid-bg {
+            background-image: radial-gradient(#333 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.2;
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-brand-darker text-gray-900 dark:text-gray-100 font-sans antialiased transition-colors duration-300 overflow-x-hidden">
@@ -111,7 +118,7 @@
                 <!-- Right Side Actions -->
                 <div class="flex items-center gap-4">
                     <!-- Theme Toggle -->
-                    <button id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition focus:outline-none">
+                    <button type="button" id="theme-toggle" class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition focus:outline-none" aria-label="Toggle dark mode">
                         <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
                         <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
                     </button>
@@ -170,7 +177,7 @@
                         <div class="h-full w-full bg-[#050505] relative flex flex-col items-center justify-center overflow-hidden">
                             
                             <!-- Grid Background inside phone -->
-                            <div class="absolute inset-0" style="background-image: radial-gradient(#333 1px, transparent 1px); background-size: 20px 20px; opacity: 0.2;"></div>
+                            <div class="absolute inset-0 grid-bg"></div>
 
                             <!-- Abstract UI Representation -->
                             <div class="absolute top-12 text-white font-bold text-lg tracking-[0.3em] text-center w-full z-20">RADAR ACTIVE</div>
@@ -342,9 +349,9 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400">© 2025 Caine Benoy. Built for the community.</p>
             </div>
             <div class="flex space-x-8">
-                <a href="#" class="text-gray-400 hover:text-gray-900 dark:hover:text-white transition"><i data-lucide="github" class="w-5 h-5"></i></a>
-                <a href="#" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition"><i data-lucide="linkedin" class="w-5 h-5"></i></a>
-                <a href="#" class="text-gray-400 hover:text-blue-400 dark:hover:text-blue-300 transition"><i data-lucide="twitter" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-400 hover:text-gray-900 dark:hover:text-white transition" aria-label="GitHub"><i data-lucide="github" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition" aria-label="LinkedIn"><i data-lucide="linkedin" class="w-5 h-5"></i></a>
+                <a href="#" class="text-gray-400 hover:text-blue-400 dark:hover:text-blue-300 transition" aria-label="Twitter"><i data-lucide="twitter" class="w-5 h-5"></i></a>
             </div>
         </div>
     </footer>
